@@ -3,14 +3,17 @@
 import { useState } from "react";
 import { HiEye, HiEyeOff } from "react-icons/hi";
 import { FcGoogle } from "react-icons/fc";
-import toast from "react-hot-toast"; // <-- import toast
+import toast from "react-hot-toast";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function SignUpForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const togglePassword = () => setShowPassword((prev) => !prev);
 
@@ -27,11 +30,26 @@ export default function SignUpForm() {
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) throw new Error(data.error || "Signup failed");
 
-      toast.success(data.message); 
+      toast.success(data.message || "Account created successfully!");
+
+      // Clear form
       setEmail("");
       setPassword("");
+
+      // Automatically sign in after signup
+      const signInResult = await signIn("credentials", {
+        email,
+        password,
+        redirect: false, // prevent default redirect
+      });
+
+      if (signInResult?.ok) {
+        router.push("/"); // redirect to homepage
+      } else {
+        toast.error("Automatic login failed. Please log in manually.");
+      }
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -39,28 +57,27 @@ export default function SignUpForm() {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    toast("Google Sign In clicked"); // optional toast
-    console.log("Google Sign In clicked");
+  const handleGoogleSignIn = async () => {
+    try {
+      await signIn("google", { callbackUrl: "/" });
+    } catch (err) {
+      toast.error("Google Sign In failed");
+    }
   };
 
   return (
     <div className="min-h-screen flex justify-center items-center bg-gradient-to-tr from-purple-900 via-black to-pink-900 relative overflow-hidden">
-      {/* Gradient Bubble Backgrounds */}
+      {/* Background bubbles */}
       <div className="absolute -top-32 -left-32 w-80 h-80 bg-purple-500 rounded-full opacity-30 blur-3xl animate-pulse"></div>
       <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-pink-500 rounded-full opacity-30 blur-3xl animate-pulse"></div>
 
       <div className="relative max-w-md w-full bg-black/50 backdrop-blur-md rounded-3xl p-10 mt-15 shadow-2xl border border-white/10">
-        <h2 className="text-4xl font-extrabold text-white mb-8 text-center tracking-wide">
-          Sign Up
-        </h2>
+        <h2 className="text-4xl font-extrabold text-white mb-8 text-center tracking-wide">Sign Up</h2>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Email */}
           <div>
-            <label className="text-gray-300 mb-2 block text-sm font-medium">
-              Email
-            </label>
+            <label className="text-gray-300 mb-2 block text-sm font-medium">Email</label>
             <input
               type="email"
               required
@@ -73,9 +90,7 @@ export default function SignUpForm() {
 
           {/* Password */}
           <div className="relative">
-            <label className="text-gray-300 mb-2 block text-sm font-medium">
-              Password
-            </label>
+            <label className="text-gray-300 mb-2 block text-sm font-medium">Password</label>
             <input
               type={showPassword ? "text" : "password"}
               required
@@ -110,7 +125,7 @@ export default function SignUpForm() {
           <hr className="flex-1 border-t border-white/20" />
         </div>
 
-        {/* Google Button */}
+        {/* Google Sign-In */}
         <button
           onClick={handleGoogleSignIn}
           className="flex items-center justify-center w-full py-3 border border-white/20 rounded-xl text-white gap-3 hover:bg-white/5 transition"
@@ -118,7 +133,11 @@ export default function SignUpForm() {
           <FcGoogle className="text-2xl" />
           Continue with Google
         </button>
-        <p className="text-center uppercase text-sm text-white mt-3">Already have an account? <Link href='/log-in' className="text-purple-500">Log In </Link></p>
+
+        <p className="text-center uppercase text-sm text-white mt-3">
+          Already have an account?{" "}
+          <Link href="/log-in" className="text-purple-500">Log In</Link>
+        </p>
       </div>
     </div>
   );
